@@ -247,3 +247,62 @@ export const handleTeacherRequest = async (req, res) => {
     });
   }
 };
+
+export const pendingTeacherRequest = async (req, res) => {
+  try {
+    const { token } = req.body;
+    if (!token) {
+      return res.status(401).json({ message: "No token provided." });
+    }
+    const decodedToken = jwt.verify(token, process.env.JWT_SECRET);
+    if (!decodedToken || decodedToken.account_type !== "teacher") {
+      return res
+        .status(401)
+        .json({ message: "Invalid token or not a Teacher." });
+    }
+
+    const teacher = await prisma.teacher.findUnique({
+      where: { user_id: decodedToken.user_id },
+      select: { teacher_id: true },
+    });
+
+    if (!teacher) {
+      return res.status(404).json({ message: "Teacher not found." });
+    }
+
+    // Fetch pending requests for the logged in teacher
+    const pendingRequests = await prisma.teacherRequest.findMany({
+      where: {
+        teacher_id: teacher.teacher_id,
+        isAccepted: false, // Only return requests that are not accepted yet
+      },
+    });
+    return res
+      .status(200)
+      .json({ message: "Pending requests.", list: pendingRequests });
+  } catch (error) {
+    console.error(error);
+    return res
+      .status(500)
+      .json({ message: "Internal Server Error", error: error.message });
+  }
+};
+
+export const teacherList = async (req, res) => {
+  try {
+    const list = await prisma.teacher.findMany({
+      where: {
+        isVerified: true,
+      },
+    });
+    if (!list) {
+      return res.status(404).json({ message: "No verified teachers found." });
+    }
+    return res.status(200).json({ message: "Teacher List.", list });
+  } catch (error) {
+    console.error(error);
+    return res
+      .status(500)
+      .json({ message: "Internal Server Error", error: error.message });
+  }
+};

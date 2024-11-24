@@ -1,11 +1,24 @@
 import { Router } from "express";
-import { teacherInfo, userInfo } from "../controller/userGeneral.js";
+import {
+  handleTeacherRequest,
+  pendingTeacherRequest,
+  requestTeacher,
+  teacherInfo,
+  teacherList,
+  userInfo,
+} from "../controller/userGeneral.js";
 
 const userGeneralRouter = Router();
 
 userGeneralRouter.post("/user/info", userInfo);
 userGeneralRouter.post("/teacher/info", teacherInfo);
 
-userGeneralRouter;
+userGeneralRouter.post("/user/request-teacher", requestTeacher);
+
+userGeneralRouter.post("/teacher/handel-request", handleTeacherRequest);
+
+userGeneralRouter.post("/teacher/pending-requests", pendingTeacherRequest);
+
+userGeneralRouter.post("/teacher/list", teacherList);
 
 export default userGeneralRouter;
