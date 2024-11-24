@@ -2,6 +2,7 @@ import { Router } from "express";
 import userAuthRouter from "./userAuth.js";
 import userGeneralRouter from "./userGeneral.js";
 import adminRouter from "./adminAll.js";
+import searchRouter from "./searchTeacher.js";
 const router = Router();
 
 router.get("/", (req, res) => {
@@ -15,5 +16,6 @@ router.get("/health", (req, res) => {
 router.use("/api", userAuthRouter);
 router.use("/api", userGeneralRouter);
 router.use("/api", adminRouter);
+router.use("/api", searchRouter);
 
 export default router;
