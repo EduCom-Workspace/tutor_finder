@@ -58,7 +58,7 @@ export const userSignup = async (req, res) => {
     if (isExist) {
       return res.status(400).json({ message: "Email already exists" });
     }
-    const hashedPassword = bcrypt.hashSync(password, 12);
+    const hashedPassword = await bcrypt.hash(password, 12);
     if (account_type === "student") {
       try {
         // Create the Signup entry
@@ -180,7 +180,7 @@ export const userLogin = async (req, res) => {
     if (!user) {
       return res.status(401).json({ message: "Invalid Credentials." });
     }
-    const isPasswordValid = bcrypt.compareSync(password, user.password);
+    const isPasswordValid = await bcrypt.compare(password, user.password);
     if (!isPasswordValid) {
       return res.status(401).json({ message: "Invalid Password." });
     }
