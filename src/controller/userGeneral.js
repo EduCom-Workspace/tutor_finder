@@ -6,6 +6,8 @@ dotenv.config();
 
 export const userInfo = async (req, res) => {
   try {
+    // console.log(req.body);
+
     const { token } = req.body;
     if (!token) {
       return res.status(401).json({ message: "No token provided." });
@@ -40,7 +42,7 @@ export const userInfo = async (req, res) => {
     if (!user) {
       return res.status(404).json({ message: "User not found." });
     }
-    console.log(user);
+    // console.log(user);
 
     return res.status(200).json({ message: "User Info.", user });
   } catch (error) {
@@ -58,9 +60,12 @@ export const teacherInfo = async (req, res) => {
       return res.status(401).json({ message: "No token provided." });
     }
     const decodedToken = jwt.verify(token, process.env.JWT_SECRET);
+    // console.log(decodedToken);
+
     if (!decodedToken) {
       return res.status(401).json({ message: "Invalid token." });
     }
+
     const teacher = await prisma.teacher.findUnique({
       where: {
         user_id: decodedToken.user_id,
@@ -68,34 +73,105 @@ export const teacherInfo = async (req, res) => {
       include: {
         reviews: {
           select: {
+            review_text: true,
+            review_id: true,
             rating: true,
+            student: {
+              select: {
+                name: true,
+              },
+            },
+          },
+        },
+        signup: {
+          select: {
+            email: true,
+            user_name: true,
           },
         },
       },
     });
+    // console.log(teacher);
+
     if (!teacher) {
       return res.status(404).json({ message: "Teacher not found." });
     }
     if (!teacher.isVerified) {
       return res.status(403).json({ message: "Teacher not verified." });
     }
-    // Calculate the average rating
-    const totalRatings = teacherProfile.reviews.length;
-    const avgRating =
-      totalRatings > 0
-        ? teacherProfile.reviews.reduce(
-            (sum, review) => sum + review.rating,
-            0
-          ) / totalRatings
-        : 0; // Return null if no ratings
-    teacher.avgRating = avgRating;
-
-    delete teacher.reviews;
-
-    console.log(teacher, "\n\n", avgRating);
 
     return res.status(200).json({ message: "Teacher Info.", teacher });
-  } catch (err) {}
+  } catch (err) {
+    console.log(err);
+
+    return res.status(400).json({ message: "Error", error: err.message });
+  }
+};
+
+export const userEditInfo = async (req, res) => {
+  try {
+    const { token, data } = req.body;
+
+    console.log(req.body);
+
+    // Validate inputs
+    if (!token || !data) {
+      return res.status(400).json({ message: "Token and data are required." });
+    }
+
+    // Verify token
+    const decodedToken = jwt.verify(token, process.env.JWT_SECRET);
+    if (!decodedToken) {
+      return res.status(401).json({ message: "Invalid token." });
+    }
+
+    // Determine account type and update user info
+    if (decodedToken.account_type === "student") {
+      const parsedData = {
+        ...data,
+        age: data.age !== undefined ? parseInt(data.age, 10) : undefined,
+      };
+
+      const updatedStudent = await prisma.student.update({
+        where: { user_id: decodedToken.user_id },
+        data: { ...parsedData },
+      });
+
+      return res.status(200).json({
+        message: "Student info updated successfully.",
+        updatedStudent,
+      });
+    } else if (decodedToken.account_type === "teacher") {
+      const parsedData = {
+        ...data,
+        age: data.age !== undefined ? parseInt(data.age, 10) : undefined,
+        experience:
+          data.experience !== undefined
+            ? parseFloat(data.experience)
+            : undefined,
+      };
+
+      const updatedTeacher = await prisma.teacher.update({
+        where: { user_id: decodedToken.user_id },
+        data: { ...parsedData },
+      });
+
+      return res.status(200).json({
+        message: "Teacher info updated successfully.",
+        updatedTeacher,
+      });
+    } else {
+      return res.status(401).json({
+        message: "Invalid account type. Must be a student or a teacher.",
+      });
+    }
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({
+      message: "Server Error",
+      error: err.message,
+    });
+  }
 };
 
 export const requestTeacher = async (req, res) => {
@@ -295,7 +371,8 @@ export const teacherList = async (req, res) => {
         isVerified: true,
       },
     });
-    if (!list) {
+
+    if (!list || list.length === 0) {
       return res.status(404).json({ message: "No verified teachers found." });
     }
     return res.status(200).json({ message: "Teacher List.", list });

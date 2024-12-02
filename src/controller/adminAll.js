@@ -82,6 +82,8 @@ export const getTotaCountlList = async (req, res) => {
     const tch = await prisma.teacher.count();
     const reviews = await prisma.teacherReview.count();
     const totalList = { students: stu, teachers: tch, reviews: reviews };
+    console.log(totalList);
+
     return res.status(200).json(totalList);
   } catch (error) {
     console.error(error);
@@ -94,11 +96,19 @@ export const getTotaCountlList = async (req, res) => {
 export const reviewsList = async (req, res) => {
   try {
     const { token } = req.body;
-    // verify that token is valid Admin
+    // console.log(token);
+
+    // Validate input
+    if (!token) {
+      return res.status(400).json({ message: "Token is required." });
+    }
+    // Verify token and ensure it's an admin
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     if (!decoded || decoded.account_type !== "admin") {
-      return res.status(401).json({ message: "Invalid token" });
+      return res.status(401).json({ message: "Unauthorized access." });
     }
+
+    // Fetch all teacher reviews with associated teacher and student details
     const reviews = await prisma.teacherReview.findMany({
       include: {
         teacher: {
@@ -109,16 +119,23 @@ export const reviewsList = async (req, res) => {
         student: {
           select: {
             name: true,
+
           },
         },
       },
     });
-    return res.status(200).json({ message: "All the reviews.", list: reviews });
+
+    // Return reviews list
+    return res.status(200).json({
+      message: "Fetched all reviews successfully.",
+      reviews,
+    });
   } catch (error) {
-    console.error(error);
-    return res
-      .status(500)
-      .json({ message: "Internal Server Error", error: error.message });
+    console.error("Error fetching reviews:", error);
+    return res.status(500).json({
+      message: "Internal Server Error",
+      error: error.message,
+    });
   }
 };
 
@@ -244,11 +261,11 @@ export const adminStudentList = async (req, res) => {
 
 export const deleteTeacher = async (req, res) => {
   try {
-    const { token, teacher_id } = req.body;
-    if (!teacher_id || !token) {
+    const { token, user_id } = req.body;
+    if (!user_id || !token) {
       return res
         .status(400)
-        .json({ message: "Teacher Id, Token and Password are required" });
+        .json({ message: "User Id, Token are required" });
     }
     // verify that token is valid Admin
     const decodedToken = jwt.verify(token, process.env.JWT_SECRET);
@@ -259,28 +276,30 @@ export const deleteTeacher = async (req, res) => {
     }
     const teacher = await prisma.teacher.findUnique({
       where: {
-        teacher_id,
+        user_id,
       },
     });
     if (!teacher) {
       return res.status(404).json({ message: "Teacher not found" });
     }
 
-    await prisma.teacher.delete({
-      where: {
-        teacher_id,
-      },
-    });
+    await prisma.$transaction([
+      prisma.signup.delete({ where: { user_id }})
+    ])
     return res.status(200).json({
-      message: `Teacher with ID ${teacher_id} and all related data deleted.`,
+      message: `Teacher with ID ${user_id} and all related data deleted.`,
     });
-  } catch (error) {}
+  } catch (error) {
+    console.log(error);
+    return res.status(400).json({ message: "Error in Backend", error: error.message })
+
+  }
 };
 
 export const deleteStudent = async (req, res) => {
   try {
-    const { token, student_id } = req.body;
-    if (!student_id || !token) {
+    const { token, user_id } = req.body;
+    if (!user_id || !token) {
       return res
         .status(400)
         .json({ message: "Student Id, Token are required" });
@@ -293,7 +312,7 @@ export const deleteStudent = async (req, res) => {
     }
     const student = await prisma.student.findUnique({
       where: {
-        student_id,
+        user_id,
       },
     });
     if (!student) {
@@ -301,16 +320,50 @@ export const deleteStudent = async (req, res) => {
     }
     await prisma.student.delete({
       where: {
-        student_id,
+        user_id,
       },
     });
     return res.status(200).json({
-      message: `Student with ID ${student_id} and all related data deleted.`,
+      message: `Student with ID ${user_id} and all related data deleted.`,
     });
   } catch (error) {
     console.error(error);
     return res
       .status(500)
       .json({ message: "Internal Server Error", error: error.message });
+  }
+};
+
+export const adminUnverifiedTeacherList = async (req, res) => {
+  try {
+    const { token } = req.body;
+    if (!token) {
+      return res.status(400).json({ message: "Token is required" });
+    }
+    // verify that token is valid Admin
+    const decodedToken = jwt.verify(token, process.env.JWT_SECRET);
+    if (!decodedToken || decodedToken.account_type !== "admin") {
+      return res
+        .status(401)
+        .json({ message: "Invalid token or not an Admin." });
+    }
+    const unverifiedTeachers = await prisma.teacher.findMany({
+      where: { isVerified: false },
+      include: {
+        signup: {
+          select: {
+            email: true,
+          },
+        },
+      },
+    });
+    return res
+      .status(200)
+      .json({ message: "Unverified teachers.", list: unverifiedTeachers });
+  } catch (err) {
+    console.log(err);
+    return res
+      .status(400)
+      .json({ message: "Error in backend", error: err.message });
   }
 };

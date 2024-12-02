@@ -10,6 +10,7 @@ import {
   reviewsList,
   verifyTeacher,
   deleteStudent,
+  adminUnverifiedTeacherList,
 } from "../controller/adminAll.js";
 
 const adminRouter = Router();
@@ -23,6 +24,8 @@ adminRouter.delete("/admin/delete-review", deleteReview);
 adminRouter.post("/admin/verify-teacher", verifyTeacher);
 
 adminRouter.post("/admin/teacher-list", adminTeacherList);
+adminRouter.post("/admin/unverified-teacher-list", adminUnverifiedTeacherList);
+
 adminRouter.post("/admin/student-list", adminStudentList);
 adminRouter.delete("/admin/teacher", deleteTeacher);
 adminRouter.delete("/admin/student", deleteStudent);
