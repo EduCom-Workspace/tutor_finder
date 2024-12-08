@@ -1,5 +1,6 @@
 import { Router } from "express";
 import {
+  getAcceptedStudentsList,
   getUserInfo,
   handleTeacherRequest,
   pendingTeacherRequest,
@@ -22,6 +23,6 @@ userGeneralRouter.get("/user/:userType-:userId", getUserInfo);
 userGeneralRouter.post("/teacher/list", teacherList);
 userGeneralRouter.post("/teacher/handel-request", handleTeacherRequest);
 userGeneralRouter.post("/teacher/pending-requests", pendingTeacherRequest);
-
+userGeneralRouter.post("/teacher/get-accetped-students", getAcceptedStudentsList)
 
 export default userGeneralRouter;
