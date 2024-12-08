@@ -82,7 +82,7 @@ export const getTotaCountlList = async (req, res) => {
     const tch = await prisma.teacher.count();
     const reviews = await prisma.teacherReview.count();
     const totalList = { students: stu, teachers: tch, reviews: reviews };
-    console.log(totalList);
+    // console.log(totalList);
 
     return res.status(200).json(totalList);
   } catch (error) {
