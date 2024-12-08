@@ -352,12 +352,19 @@ export const pendingTeacherRequest = async (req, res) => {
         teacher_id: teacher.teacher_id,
         isAccepted: false, // Only return requests that are not accepted yet
       },
+      include: {
+        student: {
+          select: {
+            name: true,
+          },
+        },
+      },
     });
     return res
       .status(200)
       .json({ message: "Pending requests.", list: pendingRequests });
   } catch (error) {
-    console.error(error);
+    console.log(error);
     return res
       .status(500)
       .json({ message: "Internal Server Error", error: error.message });
@@ -376,6 +383,35 @@ export const teacherList = async (req, res) => {
       return res.status(404).json({ message: "No verified teachers found." });
     }
     return res.status(200).json({ message: "Teacher List.", list });
+  } catch (error) {
+    console.error(error);
+    return res
+      .status(500)
+      .json({ message: "Internal Server Error", error: error.message });
+  }
+};
+
+export const getUserInfo = async (req, res) => {
+  try {
+    const { userType, userId } = req.params;
+    if (!userType || !userId) {
+      return res.status(401).json({ message: "User ID & User Type Required." });
+    }
+    let user;
+    if (userType == "student") {
+      user = await prisma.student.findUnique({
+        where: { student_id: userId },
+      });
+    }
+    if (userType == "teacher") {
+      user = await prisma.teacher.findUnique({
+        where: { teacher_id: userId },
+      });
+    }
+    if (!user) {
+      return res.status(404).json({ message: "User not found." });
+    }
+    return res.status(200).json({ message: "User Info.", user });
   } catch (error) {
     console.error(error);
     return res
