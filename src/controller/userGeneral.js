@@ -407,29 +407,89 @@ export const teacherList = async (req, res) => {
 export const getUserInfo = async (req, res) => {
   try {
     const { userType, userId } = req.params;
+
+    // console.log(userType, userId);
+
+
+    // Validate inputs
     if (!userType || !userId) {
-      return res.status(401).json({ message: "User ID & User Type Required." });
+      return res.status(400).json({ status: "error", message: "User ID and User Type are required." });
     }
-    let user;
-    if (userType == "student") {
-      user = await prisma.student.findUnique({
-        where: { student_id: userId },
+
+    if (!["student", "teacher"].includes(userType)) {
+      return res.status(400).json({ status: "error", message: "Invalid User Type provided." });
+    }
+
+    // Fetch user based on type
+    const userFetchers = {
+      student: (id) => prisma.student.findUnique({
+        where: { student_id: id }, select: {
+          age: true,
+          name: true,
+          district: true,
+          gender: true,
+          phone_no: true,
+          age: true,
+          signup: {
+            select: {
+              email: true
+            }
+          }
+        }
+      }),
+      teacher: (id) => prisma.teacher.findUnique({
+        where: { teacher_id: id },
+      }),
+    };
+
+    const fetchUser = userFetchers[userType];
+
+    let teachers = [];
+
+    const user = await fetchUser(userId);
+
+    if (userType === "teacher") {
+      // Step 1: Aggregate average ratings for each teacher
+      const ratingAggregates = await prisma.teacherReview.groupBy({
+        by: ["teacher_id"],
+        _avg: {
+          rating: true, // Calculate average rating
+        },
       });
+
+      // Convert to a map for quick lookup
+      const avgRatingMap = new Map(
+        ratingAggregates.map((agg) => [agg.teacher_id, agg._avg.rating || 0])
+      );
+
+      // Step 3: Combine teacher data with average rating
+      teachers = user.map((teacher) => ({
+        ...teacher,
+        avgRating: parseInt(
+          avgRatingMap.get(teacher.teacher_id)?.toFixed(2) || 0
+        ),
+      }));
+
     }
-    if (userType == "teacher") {
-      user = await prisma.teacher.findUnique({
-        where: { teacher_id: userId },
-      });
-    }
+
+    // Handle user not found
     if (!user) {
-      return res.status(404).json({ message: "User not found." });
+      return res.status(404).json({ status: "error", message: "User not found." });
     }
-    return res.status(200).json({ message: "User Info.", user });
+
+    // Success response
+    return res.status(200).json({
+      status: "success",
+      message: "User Info retrieved successfully.",
+      data: userType == "student" ? user : teachers,
+    });
   } catch (error) {
     console.error(error);
-    return res
-      .status(500)
-      .json({ message: "Internal Server Error", error: error.message });
+    return res.status(500).json({
+      status: "error",
+      message: "Internal Server Error",
+      error: error.message,
+    });
   }
 };
 
@@ -474,10 +534,124 @@ export const getAcceptedStudentsList = async (req, res) => {
       },
     });
 
-    console.log(acceptedStudents);
+    // console.log(acceptedStudents);
 
     return res
       .status(200)
       .json({ message: "Accepted Students List.", list: acceptedStudents });
-  } catch (error) {}
+  } catch (error) { }
 };
+
+export const getStudentAcceptedTeacher = async (req, res) => {
+  try {
+    const { token } = req.body;
+    // console.log(token);
+
+    if (!token) {
+      return res.status(401).json({ message: "No token provided." });
+    }
+    const decodedToken = jwt.verify(token, process.env.JWT_SECRET);
+
+    // console.log(decodedToken);
+
+
+    if (!decodedToken || decodedToken.account_type !== "student") {
+      return res
+        .status(401)
+        .json({ message: "Invalid token or not a student." });
+    }
+
+    const student = await prisma.student.findFirst({
+      where: {
+        user_id: decodedToken.user_id
+      },
+    })
+
+    if (!student) {
+      return res.status(404).json({ message: "Student not found." });
+    }
+
+    const acceptedTeacher = await prisma.teacherRequest.findMany({
+      where: {
+        student_id: student.student_id,
+        isAccepted: true,
+      },
+      include: {
+        teacher: {
+          select: {
+            name: true,
+            experience: true,
+            qualification: true,
+            subjects: true,
+            district: true,
+            state: true,
+            village: true
+          }
+        }
+      }
+    });
+
+    // console.log(acceptedTeacher);
+
+    if (!acceptedTeacher) {
+      return res.status(404).json({ message: "No accepted teacher found for the student." });
+    }
+    return res.status(200).json({ message: "Accepted Teacher Info.", data: acceptedTeacher });
+  } catch (error) {
+    console.error(error);
+    return res
+      .status(500)
+      .json({ message: "Internal Server Error", error: error.message });
+
+  }
+}
+
+export const getTeacherList = async (req, res) => {
+  try {
+    const { token } = req.body;
+
+    if (!token) {
+      return res.status(401).json({ message: "No token provided." });
+    }
+    const decodedToken = jwt.verify(token, process.env.JWT_SECRET);
+    if (!decodedToken || decodedToken.account_type !== "student") {
+      return res
+        .status(401)
+        .json({ message: "Invalid token or not a student." });
+    }
+
+    const student = await prisma.student.findFirst({
+      where: {
+        user_id: decodedToken.user_id
+      },
+    })
+    if (!student) {
+      return res.status(404).json({ message: "Student not found." });
+    }
+    const teacherList = await prisma.teacherRequest.findMany({
+      where: {
+        student_id: student.student_id,
+        isAccepted: true,
+      },
+      select: {
+        teacher_id: true,
+      }
+    });
+    // Extracting teacher IDs from teacherList
+    const excludedTeacherIds = teacherList.map((teacher) => teacher.teacher_id);
+
+    const list = await prisma.teacher.findMany({
+      where: {
+        isVerified: true,
+        teacher_id: { notIn: excludedTeacherIds },
+      },
+
+    });
+    return res.status(200).json({ message: "Teacher List.", list });
+  } catch (error) {
+    console.error(error);
+    return res
+      .status(500)
+      .json({ message: "Internal Server Error", error: error.message });
+  }
+}
