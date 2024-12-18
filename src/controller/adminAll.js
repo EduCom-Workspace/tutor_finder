@@ -95,19 +95,6 @@ export const getTotaCountlList = async (req, res) => {
 
 export const reviewsList = async (req, res) => {
   try {
-    const { token } = req.body;
-    // console.log(token);
-
-    // Validate input
-    if (!token) {
-      return res.status(400).json({ message: "Token is required." });
-    }
-    // Verify token and ensure it's an admin
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    if (!decoded || decoded.account_type !== "admin") {
-      return res.status(401).json({ message: "Unauthorized access." });
-    }
-
     // Fetch all teacher reviews with associated teacher and student details
     const reviews = await prisma.teacherReview.findMany({
       include: {
@@ -119,7 +106,6 @@ export const reviewsList = async (req, res) => {
         student: {
           select: {
             name: true,
-
           },
         },
       },
@@ -142,6 +128,8 @@ export const reviewsList = async (req, res) => {
 export const deleteReview = async (req, res) => {
   try {
     const { token, review_id } = req.body;
+    console.table(req.body);
+    
     if (!token || !review_id) {
       return res
         .status(400)
@@ -263,9 +251,7 @@ export const deleteTeacher = async (req, res) => {
   try {
     const { token, user_id } = req.body;
     if (!user_id || !token) {
-      return res
-        .status(400)
-        .json({ message: "User Id, Token are required" });
+      return res.status(400).json({ message: "User Id, Token are required" });
     }
     // verify that token is valid Admin
     const decodedToken = jwt.verify(token, process.env.JWT_SECRET);
@@ -283,16 +269,15 @@ export const deleteTeacher = async (req, res) => {
       return res.status(404).json({ message: "Teacher not found" });
     }
 
-    await prisma.$transaction([
-      prisma.signup.delete({ where: { user_id }})
-    ])
+    await prisma.$transaction([prisma.signup.delete({ where: { user_id } })]);
     return res.status(200).json({
       message: `Teacher with ID ${user_id} and all related data deleted.`,
     });
   } catch (error) {
     console.log(error);
-    return res.status(400).json({ message: "Error in Backend", error: error.message })
-
+    return res
+      .status(400)
+      .json({ message: "Error in Backend", error: error.message });
   }
 };
 
