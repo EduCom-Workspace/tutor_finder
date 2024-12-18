@@ -11,6 +11,7 @@ import {
   teacherList,
   userEditInfo,
   userInfo,
+  userTeacherReview,
 } from "../controller/userGeneral.js";
 
 const userGeneralRouter = Router();
@@ -21,6 +22,7 @@ userGeneralRouter.post("/user/edit-info", userEditInfo);
 userGeneralRouter.post("/user/request-teacher", requestTeacher);
 userGeneralRouter.post("/user/get-your-teacher", getStudentAcceptedTeacher);
 userGeneralRouter.post("/user/get-teacher-lists", getTeacherList);
+userGeneralRouter.post("/user/teacher-review", userTeacherReview);
 
 userGeneralRouter.route("/user/:userType/:userId").get(getUserInfo).post(getUserInfo);
 
